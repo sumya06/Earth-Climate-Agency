@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visualizations - E.C.O.S</title>
+
+  <!-- Bootstrap & Fonts -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&family=Roboto&display=swap" rel="stylesheet" />
+
+  <!-- Vanta.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vanta@0.5.21/dist/vanta.clouds.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; font-family: 'Orbitron', sans-serif; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Roboto', sans-serif;
+      color: white;
+      overflow-x: hidden;
+    }
+
+    body.sunrise { background: linear-gradient(to top, #ff9a9e, #fad0c4); }
+    body.daytime { background: linear-gradient(to top, #87ceeb, #f0e68c); }
+    body.sunset  { background: linear-gradient(to top, #2c3e50, #fd746c); }
+    body.night   { background: linear-gradient(to top, #0d1b2a, #1b263b); }
+
+    #vanta-bg, #weather-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 0; pointer-events: none;
+    }
+
+    nav.navbar {
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px);
+      animation: pulseLogo 2s infinite alternate;
+    }
+
+    @keyframes pulseLogo {
+      from { text-shadow: 0 0 5px yellow; }
+      to   { text-shadow: 0 0 20px orange; }
+    }
+
+    nav .navbar-brand, nav .nav-link {
+      color: #fff !important;
+      transition: color 0.3s ease;
+    }
+
+    nav .navbar-brand:hover, nav .nav-link:hover {
+      color: #f1c40f !important;
+    }
+
+    .content-wrapper {
+      padding-top: 100px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .jumbotron {
+      background: rgba(0, 0, 0, 0.6);
+      padding: 2rem;
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 25px rgba(0,0,0,0.3);
+    }
+
+    select.form-control, input.form-control {
+      border: none;
+      border-radius: 10px;
+      padding: 8px;
+      box-shadow: 0 0 10px rgba(241, 196, 15, 0.3);
+    }
+
+    .form-control:focus {
+      box-shadow: 0 0 15px #f1c40f;
+      outline: none;
+    }
+
+    .btn {
+      transition: 0.3s ease;
+      border-radius: 10px;
+      font-weight: bold;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 10px #f1c40f;
+    }
+
+    .card {
+      background: rgba(0, 0, 0, 0.6);
+      border: none;
+      border-radius: 15px;
+      backdrop-filter: blur(10px);
+    }
+
+    footer {
+      background: rgba(0, 0, 0, 0.5);
+      color: #ccc;
+      text-align: center;
+      padding: 15px 0;
+      font-family: 'Orbitron', sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="vanta-bg"></div>
+  <canvas id="weather-canvas"></canvas>
+
+  <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+    <a class="navbar-brand" href="{{ url_for('main.index') }}">🌍 E.C.O.S</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ml-auto">
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('main.index') }}">Home</a></li>
+        {% if session.get('username') %}
+        <li class="nav-item"><a class="nav-link" href="#">Welcome, {{ session['username'] }}</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a></li>
+        {% else %}
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Login</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.register') }}">Register</a></li>
+        {% endif %}
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('feedback.submit_feedback') }}">Feedback</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container content-wrapper">
+    <div class="jumbotron text-center">
+      <h2 class="text-warning">📈 Choose Visualization</h2>
+      <p class="lead text-light">Select variables or view correlation to explore the climate dataset.</p>
+      <!-- Variable dropdown -->
+      <form method="POST" action="{{ url_for('main.visualization_results') }}" >
+        <div class="form-group">
+          <label for="variable">Select a Variable</label>
+          <select class="form-control" id="variable" name="variable" required>
+            <option value="temperature">Temperature</option>
+            <option value="humidity">Humidity</option>
+            <option value="co2_levels">CO2 Levels</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" data-toggle="tooltip" title="View the selected variable">Visualize</button>
+      </form>
+
+      <hr class="bg-light">
+
+      <!-- Correlation -->
+      <h4 class="mt-4 text-white">Correlation Matrix</h4>
+      <form method="POST" action="{{ url_for('main.correlation_matrix') }}">
+        <button type="submit" class="btn btn-info btn-block" data-toggle="tooltip" title="View correlation matrix">Show Matrix</button>
+      </form>
+
+      <hr class="bg-light">
+
+      <!-- Multi-variable -->
+      <h4 class="mt-4 text-white">Compare Multiple Variables</h4>
+      <form method="POST" action="{{ url_for('main.multi_variable_comparison') }}">
+        <div class="form-group">
+          <label for="variables">Select up to 3 variables</label>
+          <select class="form-control" id="variables" name="variables" multiple required>
+            <option value="temperature">Temperature</option>
+            <option value="humidity">Humidity</option>
+            <option value="co2_levels">CO2 Levels</option>
+          </select>
+          <small class="form-text text-light">Hold Ctrl (Windows) or Cmd (Mac) to select multiple.</small>
+        </div>
+        <button type="submit" class="btn btn-success btn-block" data-toggle="tooltip" title="Compare selected variables">Compare</button>
+      </form>
+
+      <!-- Loading Spinner -->
+      <div id="loading-spinner" class="text-center mt-4" style="display: none;">
+        <div class="spinner-border text-warning" role="status">
+          <span class="sr-only">Loading...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="text-center mt-5">
+    <div class="container">
+      <p>&copy; 2025 E.C.O.S. All rights reserved.</p>
+      <p><a href="#">Privacy Policy</a> | <a href="#">Terms of Service</a></p>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // Vanta & theme
+    VANTA.CLOUDS({
+      el: "#vanta-bg",
+      skyColor: 0x1e272e,
+      cloudColor: 0x576574,
+      cloudShadowColor: 0x000,
+      sunColor: 0xf1c40f,
+      sunGlareColor: 0xf6e58d,
+      speed: 0.4
+    });
+
+    function setTimeTheme() {
+      const h = new Date().getHours();
+      let cls = "daytime";
+      if (h >= 5 && h < 7) cls = "sunrise";
+      else if (h >= 7 && h < 17) cls = "daytime";
+      else if (h >= 17 && h < 20) cls = "sunset";
+      else cls = "night";
+      document.body.className = cls;
+    }
+
+    setTimeTheme();
+
+    // Tooltip
+ 
+
+    // Weather overlays
+    (async function () {
+      try {
+        const pos = await new Promise(res => navigator.geolocation.getCurrentPosition(res));
+        const { latitude, longitude } = pos.coords;
+        const key = '3612c95dd651d4177ab6bcce8f850ea3';
+        const r = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${key}`);
+        const d = await r.json();
+        const weather = d.weather[0].main.toLowerCase();
+        if (weather.includes('rain') || weather.includes('drizzle')) startRain();
+        if (weather.includes('snow')) startSnow();
+      } catch (e) { console.error(e); }
+    })();
+
+    function startRain() {
+      const c = document.getElementById('weather-canvas'), ctx = c.getContext('2d');
+      c.width = window.innerWidth; c.height = window.innerHeight;
+      const drops = Array.from({ length: 200 }, () => ({
+        x: Math.random() * c.width,
+        y: Math.random() * c.height,
+        l: 10 + Math.random() * 20,
+        s: 4 + Math.random() * 4
+      }));
+      (function anim() {
+        ctx.clearRect(0, 0, c.width, c.height);
+        ctx.strokeStyle = 'rgba(0,0,255,0.3)';
+        drops.forEach(d => {
+          ctx.beginPath();
+          ctx.moveTo(d.x, d.y);
+          ctx.lineTo(d.x, d.y + d.l);
+          ctx.stroke();
+          d.y += d.s;
+          if (d.y > c.height) d.y = -d.l;
+        });
+        requestAnimationFrame(anim);
+      })();
+    }
+
+    function startSnow() {
+      const c = document.getElementById('weather-canvas'), ctx = c.getContext('2d');
+      c.width = window.innerWidth; c.height = window.innerHeight;
+      const flakes = Array.from({ length: 100 }, () => ({
+        x: Math.random() * c.width,
+        y: Math.random() * c.height,
+        r: 1 + Math.random() * 4,
+        s: 1 + Math.random() * 2,
+        w: Math.random() * 1 - 0.5
+      }));
+      (function anim() {
+        ctx.clearRect(0, 0, c.width, c.height);
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.beginPath();
+        flakes.forEach(f => {
+          ctx.moveTo(f.x, f.y);
+          ctx.arc(f.x, f.y, f.r, 0, 2 * Math.PI);
+          f.y += f.s;
+          f.x += f.w;
+          if (f.y > c.height) f.y = -f.r;
+        });
+        ctx.fill();
+        requestAnimationFrame(anim);
+      })();
+    }
+  </script>
+</body>
+</html>

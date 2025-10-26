@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prediction - E.C.O.S</title>
+
+    <!-- Bootstrap & Fonts -->
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&family=Roboto&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Vanta.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@0.5.21/dist/vanta.clouds.min.js"></script>
+
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: "Orbitron", sans-serif;
+        color: white;
+        overflow-x: hidden;
+      }
+       
+
+      body.sunrise {
+        background: linear-gradient(to top, #ff9a9e, #fad0c4);
+      }
+      body.daytime {
+        background: linear-gradient(to top, #87ceeb, #f0e68c);
+      }
+      body.sunset {
+        background: linear-gradient(to top, #2c3e50, #fd746c);
+      }
+      body.night {
+        background: linear-gradient(to top, #0d1b2a, #1b263b);
+      }
+
+      #vanta-bg,
+      #weather-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 0;
+        pointer-events: none;
+      }
+
+      nav.navbar {
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(10px);
+        animation: pulseLogo 2s infinite alternate;
+      }
+
+      @keyframes pulseLogo {
+        from {
+          text-shadow: 0 0 5px yellow;
+        }
+        to {
+          text-shadow: 0 0 20px orange;
+        }
+      }
+
+      nav .navbar-brand,
+      nav .nav-link {
+        color: #fff !important;
+        transition: color 0.3s ease;
+      }
+
+      nav .navbar-brand:hover,
+      nav .nav-link:hover {
+        color: #f1c40f !important;
+      }
+
+      .content-wrapper {
+        padding-top: 100px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .jumbotron {
+        background: rgba(0, 0, 0, 0.6);
+        padding: 2rem;
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 0 25px rgba(0, 0, 0, 0.3);
+      }
+
+      select.form-control,
+      input.form-control {
+        border: none;
+        border-radius: 10px;
+        padding: 8px;
+        box-shadow: 0 0 10px rgba(241, 196, 15, 0.3);
+      }
+
+      .form-control:focus {
+        box-shadow: 0 0 15px #f1c40f;
+        outline: none;
+      }
+
+      .btn {
+        transition: 0.3s ease;
+        border-radius: 10px;
+        font-weight: bold;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0 10px #f1c40f;
+      }
+
+      .alert {
+        font-size: 1.1rem;
+        font-weight: bold;
+        font-family:  Georgia, 'Times New Roman', Times, serif !important;
+      }
+
+      footer {
+        background: rgba(0, 0, 0, 0.5);
+        color: #ccc;
+        text-align: center;
+        padding: 15px 0;
+        font-family: "Orbitron", sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="vanta-bg"></div>
+    <canvas id="weather-canvas"></canvas>
+
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+      <a class="navbar-brand" href="{{ url_for('main.index') }}">🌍 E.C.O.S</a>
+      <button
+        class="navbar-toggler"
+        type="button"
+        data-toggle="collapse"
+        data-target="#navbarNav"
+      >
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('main.index') }}">Home</a>
+          </li>
+          {% if session.get('username') %}
+          <li class="nav-item">
+            <a class="nav-link" href="#">Welcome, {{ session['username'] }}</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a>
+          </li>
+          {% else %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.register') }}"
+              >Register</a
+            >
+          </li>
+          {% endif %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('feedback.submit_feedback') }}"
+              >Feedback</a
+            >
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="container content-wrapper">
+      <div class="jumbotron text-center">
+        <h2 class="text-warning">🌍 Climate Prediction</h2>
+        <p class="lead text-light">Select a location to view climate trends.</p>
+        <form method="POST">
+          <div class="form-group">
+            <label for="country" class="text-white">Country</label>
+            <select class="form-control" id="country" name="country" required>
+              <option disabled selected>Select a country</option>
+              {% for country in countries %}
+              <option value="{{ country }}">{{ country }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="city" class="text-white">City</label>
+            <select class="form-control" id="city" name="city" required>
+              <option disabled selected>Select a city</option>
+            </select>
+          </div>
+          <button
+            type="submit"
+            class="btn btn-success btn-block"
+            data-toggle="tooltip"
+            title="Predict climate for the selected location"
+          >
+            Get Prediction
+          </button>
+        </form>
+        {% if prediction %}
+        <div class="alert alert-{{ alert_color }} mt-3 fonts">
+          {{ prediction }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <footer>
+      <div class="container">
+        <p>&copy; 2025 E.C.O.S. All rights reserved.</p>
+        <p><a href="#">Privacy Policy</a> | <a href="#">Terms of Service</a></p>
+      </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      VANTA.CLOUDS({
+        el: "#vanta-bg",
+        skyColor: 0x1e272e,
+        cloudColor: 0x576574,
+        cloudShadowColor: 0x000,
+        sunColor: 0xf1c40f,
+        sunGlareColor: 0xf6e58d,
+        speed: 0.4,
+      });
+
+      function setTimeTheme() {
+        const h = new Date().getHours();
+        let cls = "daytime";
+        if (h >= 5 && h < 7) cls = "sunrise";
+        else if (h >= 7 && h < 17) cls = "daytime";
+        else if (h >= 17 && h < 20) cls = "sunset";
+        else cls = "night";
+        document.body.className = cls;
+      }
+
+      setTimeTheme();
+
+      // Dynamic cities
+      const countries = {
+        USA: ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix"],
+        UK: ["London", "Manchester", "Birmingham", "Liverpool", "Glasgow"],
+        India: ["Delhi", "Mumbai", "Bangalore", "Chennai", "Hyderabad"],
+        Canada: ["Toronto", "Vancouver", "Montreal", "Calgary", "Ottawa"],
+        Australia: ["Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide"],
+        Germany: ["Berlin", "Munich", "Frankfurt", "Hamburg", "Cologne"],
+        France: ["Paris", "Marseille", "Lyon", "Toulouse", "Nice"],
+        Japan: ["Tokyo", "Osaka", "Yokohama", "Nagoya", "Sapporo"],
+        Brazil: [
+          "São Paulo",
+          "Rio de Janeiro",
+          "Salvador",
+          "Brasília",
+          "Fortaleza",
+        ],
+        "South Africa": [
+          "Johannesburg",
+          "Cape Town",
+          "Durban",
+          "Pretoria",
+          "Port Elizabeth",
+        ],
+        Mexico: ["Mexico City", "Guadalajara", "Monterrey", "Puebla", "Cancún"],
+        Italy: ["Rome", "Milan", "Naples", "Turin", "Palermo"],
+        Spain: ["Madrid", "Barcelona", "Valencia", "Seville", "Bilbao"],
+        Russia: [
+          "Moscow",
+          "Saint Petersburg",
+          "Novosibirsk",
+          "Yekaterinburg",
+          "Nizhny Novgorod",
+        ],
+        China: ["Beijing", "Shanghai", "Guangzhou", "Shenzhen", "Chengdu"],
+        "South Korea": ["Seoul", "Busan", "Incheon", "Daegu", "Daejeon"],
+        Argentina: [
+          "Buenos Aires",
+          "Córdoba",
+          "Rosario",
+          "La Plata",
+          "Mendoza",
+        ],
+        Nigeria: ["Lagos", "Abuja", "Ibadan", "Port Harcourt", "Kano"],
+        Egypt: ["Cairo", "Alexandria", "Giza", "Shubra El Kheima", "Port Said"],
+        Turkey: ["Istanbul", "Ankara", "Izmir", "Bursa", "Adana"],
+        Indonesia: ["Jakarta", "Surabaya", "Bandung", "Medan", "Semarang"],
+        Philippines: [
+          "Manila",
+          "Quezon City",
+          "Cebu City",
+          "Davao City",
+          "Zamboanga City",
+        ],
+        Vietnam: [
+          "Hanoi",
+          "Ho Chi Minh City",
+          "Da Nang",
+          "Hai Phong",
+          "Can Tho",
+        ],
+        Thailand: [
+          "Bangkok",
+          "Nonthaburi",
+          "Nakhon Ratchasima",
+          "Chiang Mai",
+          "Hat Yai",
+        ],
+        Colombia: ["Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena"],
+        Malaysia: [
+          "Kuala Lumpur",
+          "George Town",
+          "Johor Bahru",
+          "Ipoh",
+          "Shah Alam",
+        ],
+        Pakistan: [
+          "Karachi",
+          "Lahore",
+          "Islamabad",
+          "Faisalabad",
+          "Rawalpindi",
+        ],
+        Bangladesh: ["Dhaka", "Chittagong", "Khulna", "Rajshahi", "Sylhet"],
+        Iran: ["Tehran", "Mashhad", "Isfahan", "Karaj", "Tabriz"],
+        "Saudi Arabia": ["Riyadh", "Jeddah", "Mecca", "Medina", "Dammam"],
+        Iraq: ["Baghdad", "Basra", "Mosul", "Erbil", "Sulaymaniyah"],
+        Ukraine: ["Kyiv", "Kharkiv", "Odesa", "Dnipro", "Lviv"],
+        Poland: ["Warsaw", "Kraków", "Łódź", "Wrocław", "Poznań"],
+        Romania: ["Bucharest", "Cluj-Napoca", "Timișoara", "Iași", "Constanța"],
+        Netherlands: [
+          "Amsterdam",
+          "Rotterdam",
+          "The Hague",
+          "Utrecht",
+          "Eindhoven",
+        ],
+        Belgium: ["Brussels", "Antwerp", "Ghent", "Bruges", "Namur"],
+        Switzerland: ["Zurich", "Geneva", "Basel", "Bern", "Lausanne"],
+        Austria: ["Vienna", "Graz", "Linz", "Salzburg", "Innsbruck"],
+        Norway: ["Oslo", "Bergen", "Stavanger", "Drammen", "Kristiansand"],
+        Sweden: ["Stockholm", "Gothenburg", "Malmö", "Uppsala", "Linköping"],
+        Denmark: ["Copenhagen", "Aarhus", "Odense", "Aalborg", "Esbjerg"],
+        Finland: ["Helsinki", "Espoo", "Tampere", "Vantaa", "Oulu"],
+        Iceland: [
+          "Reykjavik",
+          "Kopavogur",
+          "Akureyri",
+          "Hafnarfjordur",
+          "Selfoss",
+        ],
+        Greece: ["Athens", "Thessaloniki", "Patras", "Heraklion", "Larissa"],
+        Portugal: ["Lisbon", "Porto", "Amadora", "Braga", "Coimbra"],
+        "Czech Republic": ["Prague", "Brno", "Ostrava", "Plzeň", "Olomouc"],
+        Hungary: ["Budapest", "Debrecen", "Szeged", "Miskolc", "Pécs"],
+        Bulgaria: ["Sofia", "Plovdiv", "Varna", "Burgas", "Ruse"],
+        Serbia: ["Belgrade", "Novi Sad", "Niš", "Kragujevac", "Subotica"],
+        Croatia: ["Zagreb", "Split", "Rijeka", "Osijek", "Zadar"],
+        Slovakia: ["Bratislava", "Košice", "Prešov", "Nitra", "Trnava"],
+        Slovenia: ["Ljubljana", "Maribor", "Celje", "Kranj", "Velenje"],
+        Estonia: ["Tallinn", "Tartu", "Narva", "Kohtla-Järve", "Pärnu"],
+        Latvia: ["Riga", "Daugavpils", "Liepaja", "Jelgava", "Rēzekne"],
+        Lithuania: ["Vilnius", "Kaunas", "Klaipeda", "Šiauliai", "Panevėžys"],
+        Belarus: ["Minsk", "Gomel", "Mogilev", "Vitebsk", "Hrodna"],
+        Kazakhstan: ["Almaty", "Astana", "Shymkent", "Karaganda", "Aktobe"],
+        Uzbekistan: ["Tashkent", "Samarkand", "Bukhara", "Andijan", "Namangan"],
+        Kyrgyzstan: ["Bishkek", "Osh", "Jalal-Abad", "Talas", "Naryn"],
+      };
+
+      $("#country").on("change", function () {
+        const selected = $(this).val();
+        const cityDropdown = $("#city");
+        cityDropdown
+          .empty()
+          .append("<option disabled selected>Select a city</option>");
+        if (countries[selected]) {
+          countries[selected].forEach((c) => {
+            cityDropdown.append(`<option value="${c}">${c}</option>`);
+          });
+        }
+      });
+
+      // Weather overlays
+      (async function () {
+        try {
+          const pos = await new Promise((res) =>
+            navigator.geolocation.getCurrentPosition(res)
+          );
+          const { latitude, longitude } = pos.coords;
+          const key = "3612c95dd651d4177ab6bcce8f850ea3";
+          const r = await fetch(
+            `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${key}`
+          );
+          const d = await r.json();
+          const weather = d.weather[0].main.toLowerCase();
+          if (weather.includes("rain") || weather.includes("drizzle"))
+            startRain();
+          if (weather.includes("snow")) startSnow();
+        } catch (e) {
+          console.error(e);
+        }
+      })();
+
+      function startRain() {
+        const c = document.getElementById("weather-canvas"),
+          ctx = c.getContext("2d");
+        c.width = window.innerWidth;
+        c.height = window.innerHeight;
+        const drops = Array.from({ length: 200 }, () => ({
+          x: Math.random() * c.width,
+          y: Math.random() * c.height,
+          l: 10 + Math.random() * 20,
+          s: 4 + Math.random() * 4,
+        }));
+        (function anim() {
+          ctx.clearRect(0, 0, c.width, c.height);
+          ctx.strokeStyle = "rgba(0,0,255,0.3)";
+          drops.forEach((d) => {
+            ctx.beginPath();
+            ctx.moveTo(d.x, d.y);
+            ctx.lineTo(d.x, d.y + d.l);
+            ctx.stroke();
+            d.y += d.s;
+            if (d.y > c.height) d.y = -d.l;
+          });
+          requestAnimationFrame(anim);
+        })();
+      }
+
+      function startSnow() {
+        const c = document.getElementById("weather-canvas"),
+          ctx = c.getContext("2d");
+        c.width = window.innerWidth;
+        c.height = window.innerHeight;
+        const flakes = Array.from({ length: 100 }, () => ({
+          x: Math.random() * c.width,
+          y: Math.random() * c.height,
+          r: 1 + Math.random() * 4,
+          s: 1 + Math.random() * 2,
+          w: Math.random() * 1 - 0.5,
+        }));
+        (function anim() {
+          ctx.clearRect(0, 0, c.width, c.height);
+          ctx.fillStyle = "rgba(255,255,255,0.8)";
+          ctx.beginPath();
+          flakes.forEach((f) => {
+            ctx.moveTo(f.x, f.y);
+            ctx.arc(f.x, f.y, f.r, 0, 2 * Math.PI);
+            f.y += f.s;
+            f.x += f.w;
+            if (f.y > c.height) f.y = -f.r;
+          });
+          ctx.fill();
+          requestAnimationFrame(anim);
+        })();
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E.C.O.S</title>
+
+  <!-- Bootstrap & FontAwesome -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&family=Roboto&display=swap" rel="stylesheet">
+
+  <!-- Vanta.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vanta@0.5.21/dist/vanta.clouds.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Orbitron', sans-serif;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+      color: #fff;
+      font-family: 'Roboto', sans-serif;
+      transition: background 1s ease;
+      scroll-behavior: smooth;
+    }
+
+    nav.navbar {
+      background: rgba(0, 0, 0, 0.5) !important;
+      position: fixed;
+      width: 100%;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+      font-family: 'Orbitron', sans-serif;
+      animation: pulseLogo 2s infinite alternate;
+    }
+
+    @keyframes pulseLogo {
+      from { text-shadow: 0 0 5px yellow; }
+      to { text-shadow: 0 0 20px orange; }
+    }
+
+    nav .navbar-brand, nav .nav-link {
+      color: #fff !important;
+      transition: color 0.3s ease;
+    }
+
+    nav .navbar-brand:hover, nav .nav-link:hover {
+      color: #f1c40f !important;
+    }
+
+    body.sunrise { background: linear-gradient(to top, #ff9a9e, #fad0c4); }
+    body.daytime  { background: linear-gradient(to top, #87ceeb, #f0e68c); }
+    body.sunset   { background: linear-gradient(to top, #2c3e50, #fd746c); }
+    body.night    { background: linear-gradient(to top, #0d1b2a, #1b263b); }
+
+    #emoji-time {
+      font-size: 3rem;
+      text-align: center;
+      opacity: 1;
+      transition: opacity 2s ease-in-out;
+      margin-top: 10px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    #clock, #greeting {
+      text-align: center;
+      color: white;
+      z-index: 15;
+      pointer-events: none;
+    }
+
+    #clock { font-size: 1.5rem; }
+    #greeting { font-size: 1.2rem; }
+
+    .content {
+      position: relative;
+      z-index: 20;
+      padding-top: 100px;
+    }
+
+    footer {
+      background: rgba(0, 0, 0, 0.5) !important;
+      backdrop-filter: blur(10px);
+      color: #fff !important;
+      text-align: center;
+      padding: 15px 0;
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      z-index: 20;
+    }
+
+    #weather-canvas,
+    #vanta-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+      max-height: 100vh;
+    }
+
+    .card {
+      background: rgba(0, 0, 0, 0.6);
+      border: none;
+      border-radius: 20px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      backdrop-filter: blur(8px);
+    }
+
+    .card:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 25px rgba(241, 196, 15, 0.5);
+    }
+
+    .card .btn {
+      transition: background-color 0.3s, box-shadow 0.3s;
+    }
+
+    .card:hover .btn {
+      background-color: #f1c40f;
+      color: black;
+      box-shadow: 0 0 10px #f1c40f;
+    }
+
+    @media (max-width: 768px) {
+      .display-4 {
+        font-size: 2rem;
+      }
+
+      .lead {
+        font-size: 1rem;
+      }
+
+      .card .btn {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.8rem;
+      }
+
+      .card i {
+        font-size: 2rem;
+      }
+
+      #emoji-time {
+        font-size: 2rem;
+      }
+
+      #clock, #greeting {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="vanta-bg"></div>
+  <canvas id="weather-canvas"></canvas>
+
+  <div class="content">
+    <nav class="navbar navbar-expand-lg navbar-dark">
+      <a class="navbar-brand" href="{{ url_for('main.index') }}">🌍 E.C.O.S</a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('main.index') }}">Home</a></li>
+          {% if session.get('username') %}
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a></li>
+          {% else %}
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}" >Login</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.register') }}">Register</a></li>
+          {% endif %}
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('feedback.submit_feedback') }}">Feedback</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="container text-center mt-5 pt-4">
+      <div id="emoji-time">☀️</div>
+      <div id="clock"></div>
+      <div id="greeting"></div>
+      <h1 class="display-4 text-white mt-3">Welcome to E.C.O.S:<h3 class="display-5 text-white mt-3">Environmental Computation and Observation System</h3></h1>
+      
+      <p class="lead text-white">Explore climate & time‑based dynamic visuals.</p>
+      <a href="{{ url_for('auth.register') }}" class="btn btn-light">Get Started</a>
+    </div>
+
+    <div class="container my-5 pb-5">
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <div class="card text-white h-100">
+            <div class="card-body text-center">
+              <i class="fas fa-chart-line fa-3x mb-2"></i>
+              <h5 class="card-title">Data Visualization</h5>
+              <p class="card-text">Interactive graphs to explore climate patterns and predictions.</p>
+              <a href="{{ url_for('main.visualization') }}" class="btn btn-dark">View Visualization</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4 mb-3">
+          <div class="card text-white h-100">
+            <div class="card-body text-center">
+              <i class="fas fa-robot fa-3x mb-2"></i>
+              <h5 class="card-title">Machine Learning Models</h5>
+              <p class="card-text">Advanced models to predict climate trends and anomalies.</p>
+              <a href="{{ url_for('main.predict') }}" class="btn btn-dark">View Models</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4 mb-3">
+          <div class="card text-white h-100">
+            <div class="card-body text-center">
+              <i class="fas fa-bell fa-3x mb-2"></i>
+              <h5 class="card-title">Real-time Notifications</h5>
+              <p class="card-text">Stay informed about climate anomalies with instant alerts.</p>
+              <a href="{{ url_for('notifications.view_notifications') }}" class="btn btn-dark">View Notifications</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>&copy; 2025 E.C.O.S </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    const userName = "{{ session['username'] }}";
+
+    VANTA.CLOUDS({
+      el: '#vanta-bg',
+      skyColor: 0x222f3e,
+      cloudColor: 0x576574,
+      cloudShadowColor: 0x0,
+      sunColor: 0xf6e58d
+    });
+
+    function updateTime() {
+      const now = new Date();
+      const h = now.getHours();
+      const m = now.getMinutes().toString().padStart(2, "0");
+      const s = now.getSeconds().toString().padStart(2, "0");
+      const ampm = h >= 12 ? "PM" : "AM";
+      const hour12 = h % 12 || 12;
+      document.getElementById("clock").textContent = `${hour12}:${m}:${s} ${ampm}`;
+    }
+
+    function updateGreeting() {
+      const h = new Date().getHours();
+      let greeting = "Welcome";
+      if (h >= 5 && h < 12) greeting = "Good Morning";
+      else if (h >= 12 && h < 17) greeting = "Good Afternoon";
+      else if (h >= 17 && h < 21) greeting = "Good Evening";
+      else greeting = "Good Night";
+      document.getElementById("greeting").textContent = `${greeting}, ${userName || 'Guest'}!`;
+    }
+
+    let currentEmoji = null;
+    let currentTimeClass = null;
+
+    function updateEmoji() {
+      const h = new Date().getHours();
+      const emojiEl = document.getElementById("emoji-time");
+      let newEmoji = "☀️", newClass = "";
+
+      if (h >= 5 && h < 7) { newEmoji = "🌅"; newClass = "sunrise"; }
+      else if (h >= 7 && h < 17) { newEmoji = "☀️"; newClass = "daytime"; }
+      else if (h >= 17 && h < 20) { newEmoji = "🌇"; newClass = "sunset"; }
+      else { newEmoji = "🌙"; newClass = "night"; }
+
+      if (newEmoji !== currentEmoji) emojiEl.textContent = newEmoji;
+      if (newClass !== currentTimeClass) document.body.className = newClass;
+
+      currentEmoji = newEmoji;
+      currentTimeClass = newClass;
+    }
+
+    setInterval(() => {
+      updateTime();
+      updateGreeting();
+      updateEmoji();
+    }, 1000);
+    updateTime();
+    updateGreeting();
+    updateEmoji();
+
+    window.addEventListener('resize', () => {
+      const c = document.getElementById('weather-canvas');
+      c.width = window.innerWidth;
+      c.height = window.innerHeight;
+    });
+
+    (async function () {
+      try {
+        const pos = await new Promise(res => navigator.geolocation.getCurrentPosition(res));
+        const { latitude, longitude } = pos.coords;
+        const key = '3612c95dd651d4177ab6bcce8f850ea3'; // Replace with your key
+        const r = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${key}`);
+        const d = await r.json();
+        const weather = d.weather[0].main.toLowerCase();
+        if (weather.includes('rain') || weather.includes('drizzle')) startRain();
+        if (weather.includes('snow')) startSnow();
+      } catch (e) { console.error(e); }
+    })();
+
+    function startRain() {
+      const c = document.getElementById('weather-canvas'), ctx = c.getContext('2d');
+      c.width = window.innerWidth; c.height = window.innerHeight;
+      const drops = Array.from({ length: 200 }, () => ({
+        x: Math.random() * c.width,
+        y: Math.random() * c.height,
+        l: 10 + Math.random() * 20,
+        s: 4 + Math.random() * 4
+      }));
+      (function anim() {
+        ctx.clearRect(0, 0, c.width, c.height);
+        ctx.strokeStyle = 'rgba(0,0,255,0.3)';
+        drops.forEach(d => {
+          ctx.beginPath();
+          ctx.moveTo(d.x, d.y);
+          ctx.lineTo(d.x, d.y + d.l);
+          ctx.stroke();
+          d.y += d.s;
+          if (d.y > c.height) d.y = -d.l;
+        });
+        requestAnimationFrame(anim);
+      })();
+    }
+
+    function startSnow() {
+      const c = document.getElementById('weather-canvas'), ctx = c.getContext('2d');
+      c.width = window.innerWidth; c.height = window.innerHeight;
+      const flakes = Array.from({ length: 100 }, () => ({
+        x: Math.random() * c.width,
+        y: Math.random() * c.height,
+        r: 1 + Math.random() * 4,
+        s: 1 + Math.random() * 2,
+        w: Math.random() * 1 - 0.5
+      }));
+      (function anim() {
+        ctx.clearRect(0, 0, c.width, c.height);
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.beginPath();
+        flakes.forEach(f => {
+          ctx.moveTo(f.x, f.y);
+          ctx.arc(f.x, f.y, f.r, 0, 2 * Math.PI);
+          f.y += f.s;
+          f.x += f.w;
+          if (f.y > c.height) f.y = -f.r;
+        });
+        ctx.fill();
+        requestAnimationFrame(anim);
+      })();
+    }
+  </script>
+</body>
+</html>
